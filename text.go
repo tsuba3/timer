@@ -6,8 +6,10 @@ import (
 
 const numberWidth = 5
 const numberHeight = 5
+const SeparatorWidth = 1
 
 var large_number_text [][]Point
+var separator_text []Point
 
 func init() {
 	text := make([]string, 10)
@@ -84,12 +86,18 @@ func init() {
 		"    x\n"
 
 	for i := 0; i <= 9; i++ {
-		for y, line := range strings.Split(text[i], "\n") {
-			for x, char := range line {
-				if char == 'x' {
-					large_number_text[i] = append(large_number_text[i], Point{x, y})
-				}
+		large_number_text[i] = parseText(text[i])
+	}
+}
+
+func parseText(text string) []Point {
+	res := make([]Point, 0)
+	for y, line := range strings.Split(text, "\n") {
+		for x, char := range line {
+			if char == 'x' {
+				res = append(res, Point{x, y})
 			}
 		}
 	}
+	return res
 }
