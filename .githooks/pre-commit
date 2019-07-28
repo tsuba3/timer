@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for FILE in `git diff --cached --name-only | grep .go`; do
+    gofmt -w $FILE
+    git add $FILE
+done
+
