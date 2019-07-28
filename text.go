@@ -88,6 +88,8 @@ func init() {
 	for i := 0; i <= 9; i++ {
 		large_number_text[i] = parseText(text[i])
 	}
+
+	separator_text = []Point{Point{0, 1}, Point{0, 3}}
 }
 
 func parseText(text string) []Point {
