@@ -15,19 +15,71 @@ type Point struct {
 	y int
 }
 
-func WriteChar(screen tcell.Screen, offcet Point, points []Point) {
+func WriteChar(screen tcell.Screen, offset Point, points []Point) {
 	style := tcell.StyleDefault.Background(foregroundColor)
 	for _, p := range points {
-		screen.SetContent(offcet.x+p.x, offcet.y+p.y, ' ', nil, style)
+		screen.SetContent(offset.x+p.x, offset.y+p.y, ' ', nil, style)
 	}
 }
 
-func WriteNumber(screen tcell.Screen, offcet Point, n int) {
-	WriteChar(screen, offcet, large_number_text[n])
+func WriteNumber(screen tcell.Screen, offset Point, n int) {
+	WriteChar(screen, offset, large_number_text[n])
 }
 
-func WriteSeparator(screen tcell.Screen, offcet Point) {
-	WriteChar(screen, offcet, separator_text)
+func WriteSeparator(screen tcell.Screen, offset Point) {
+	WriteChar(screen, offset, separator_text)
+}
+
+func CalcCenterOffset(screen tcell.Screen, width int, height int) Point {
+	screenWidth, screenHeight := screen.Size()
+	offsetLeft := (screenWidth - width) / 2
+	offsetTop := (screenHeight - height) / 2
+	return Point{offsetLeft, offsetTop}
+}
+
+func WriteLine(screen tcell.Screen, offset Point, str string) {
+	style := tcell.StyleDefault.Foreground(foregroundColor)
+	for i, c := range str {
+		screen.SetContent(offset.x+i, offset.y, c, nil, style)
+	}
+}
+
+func WriteTime(screen tcell.Screen, d time.Duration) {
+	if _, h := screen.Size(); h >= numberHeight {
+		width := numberWidth*6 + separatorWidth + 1*6
+		height := numberHeight
+		offset := CalcCenterOffset(screen, width, height)
+
+		WriteNumber(screen, offset, int(d.Hours()/10)%10)
+		offset.x += numberWidth + 1
+
+		WriteNumber(screen, offset, int(d.Hours())%10)
+		offset.x += numberWidth + 1
+
+		WriteSeparator(screen, offset)
+		offset.x += separatorWidth + 1
+
+		WriteNumber(screen, offset, int(d.Minutes())%60/10%10)
+		offset.x += numberWidth + 1
+
+		WriteNumber(screen, offset, int(d.Minutes())%10)
+		offset.x += numberWidth + 1
+
+		WriteSeparator(screen, offset)
+		offset.x += separatorWidth + 1
+
+		WriteNumber(screen, offset, int(d.Seconds())%60/10%10)
+		offset.x += numberWidth + 1
+
+		WriteNumber(screen, offset, int(d.Seconds())%10)
+		offset.x += numberWidth + 1
+	} else {
+		width := len([]rune("00:00:00"))
+		height := 1
+		offset := CalcCenterOffset(screen, width, height)
+		str := fmt.Sprintf("%02d:%02d:%02d", int(d.Hours()), int(d.Minutes())%60, int(d.Seconds())%60)
+		WriteLine(screen, offset, str)
+	}
 }
 
 func main() {
@@ -38,10 +90,8 @@ func main() {
 	}
 
 	screen.Init()
-	for i := 0; i < 10; i++ {
-		WriteNumber(screen, Point{1 + 6*i, 1}, i)
-	}
-	WriteSeparator(screen, Point{61, 1})
+	duration, _ := time.ParseDuration("9h45m01s")
+	WriteTime(screen, duration)
 	screen.Show()
 	time.Sleep(5 * time.Second)
 	screen.Fini()

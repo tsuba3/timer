@@ -6,7 +6,7 @@ import (
 
 const numberWidth = 5
 const numberHeight = 5
-const SeparatorWidth = 1
+const separatorWidth = 1
 
 var large_number_text [][]Point
 var separator_text []Point
