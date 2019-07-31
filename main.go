@@ -82,6 +82,29 @@ func WriteTime(screen tcell.Screen, d time.Duration) {
 	}
 }
 
+func TimerLoop(screen tcell.Screen, finishTime time.Time, quit <-chan struct{}) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	screen.Clear()
+	WriteTime(screen, finishTime.Sub(time.Now()))
+	screen.Show()
+
+	for {
+		select {
+		case <-quit:
+			return
+		case t := <-ticker.C:
+			if t.After(finishTime) {
+				return
+			}
+			screen.Clear()
+			WriteTime(screen, finishTime.Sub(t))
+			screen.Show()
+		}
+	}
+}
+
 func main() {
 	screen, err := tcell.NewScreen()
 	if err != nil {
@@ -90,7 +113,6 @@ func main() {
 	}
 
 	finishTime := time.Now().Add(time.Duration(10 * time.Second))
-	ticker := time.NewTicker(time.Second)
 	quit := make(chan struct{})
 
 	screen.Init()
@@ -108,24 +130,7 @@ func main() {
 		}
 	}()
 
-	WriteTime(screen, finishTime.Sub(time.Now()))
-	screen.Show()
-
-LOOP:
-	for {
-		select {
-		case <-quit:
-			break LOOP
-		case t := <-ticker.C:
-			if t.After(finishTime) {
-				ticker.Stop()
-				break LOOP
-			}
-			screen.Clear()
-			WriteTime(screen, finishTime.Sub(t))
-			screen.Show()
-		}
-	}
+	TimerLoop(screen, finishTime, quit)
 
 	screen.Fini()
 	os.Exit(0)
