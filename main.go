@@ -96,10 +96,40 @@ func TimerLoop(screen tcell.Screen, finishTime time.Time, quit <-chan struct{}) 
 			return
 		case t := <-ticker.C:
 			if t.After(finishTime) {
+				BlinkLoop(screen, quit)
 				return
 			}
 			screen.Clear()
 			WriteTime(screen, finishTime.Sub(t))
+			screen.Show()
+		}
+	}
+}
+
+func BlinkLoop(screen tcell.Screen, quit <-chan struct{}) {
+	ch := make(chan bool, 1)
+	go func() {
+		for {
+			ch <- true
+			time.Sleep(150 * time.Millisecond)
+			ch <- false
+			time.Sleep(150 * time.Millisecond)
+			ch <- true
+			time.Sleep(150 * time.Millisecond)
+			ch <- false
+			time.Sleep(400 * time.Millisecond)
+		}
+	}()
+	for {
+		select {
+		case <-quit:
+			return
+		case blink := <-ch:
+			if blink {
+				screen.Fill(' ', tcell.StyleDefault.Background(foregroundColor))
+			} else {
+				screen.Clear()
+			}
 			screen.Show()
 		}
 	}
