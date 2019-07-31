@@ -153,7 +153,7 @@ func main() {
 			case *tcell.EventResize:
 				screen.Sync()
 			case *tcell.EventKey:
-				if event.Key() == tcell.KeyESC || event.Rune() == 'q' {
+				if event.Key() == tcell.KeyESC || event.Rune() == 'q' || event.Key() == tcell.KeyCtrlC {
 					close(quit)
 				}
 			}
