@@ -89,10 +89,44 @@ func main() {
 		return
 	}
 
+	finishTime := time.Now().Add(time.Duration(10 * time.Second))
+	ticker := time.NewTicker(time.Second)
+	quit := make(chan struct{})
+
 	screen.Init()
-	duration, _ := time.ParseDuration("9h45m01s")
-	WriteTime(screen, duration)
+	go func() {
+		for {
+			event := screen.PollEvent()
+			switch event := event.(type) {
+			case *tcell.EventResize:
+				screen.Sync()
+			case *tcell.EventKey:
+				if event.Key() == tcell.KeyESC || event.Rune() == 'q' {
+					close(quit)
+				}
+			}
+		}
+	}()
+
+	WriteTime(screen, finishTime.Sub(time.Now()))
 	screen.Show()
-	time.Sleep(5 * time.Second)
+
+LOOP:
+	for {
+		select {
+		case <-quit:
+			break LOOP
+		case t := <-ticker.C:
+			if t.After(finishTime) {
+				ticker.Stop()
+				break LOOP
+			}
+			screen.Clear()
+			WriteTime(screen, finishTime.Sub(t))
+			screen.Show()
+		}
+	}
+
 	screen.Fini()
+	os.Exit(0)
 }
