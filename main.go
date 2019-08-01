@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -44,9 +46,15 @@ func WriteLine(screen tcell.Screen, offset Point, str string) {
 	}
 }
 
-func WriteTime(screen tcell.Screen, d time.Duration) {
+func WriteTime(screen tcell.Screen, d time.Duration, showSecond bool) {
 	if _, h := screen.Size(); h >= numberHeight {
-		width := numberWidth*6 + separatorWidth + 1*6
+		var width int
+		if showSecond {
+			width = numberWidth*6 + separatorWidth*2 + 1*7
+		} else {
+			width = numberWidth*4 + separatorWidth + 1*4
+		}
+
 		height := numberHeight
 		offset := CalcCenterOffset(screen, width, height)
 
@@ -65,29 +73,39 @@ func WriteTime(screen tcell.Screen, d time.Duration) {
 		WriteNumber(screen, offset, int(d.Minutes())%10)
 		offset.x += numberWidth + 1
 
-		WriteSeparator(screen, offset)
-		offset.x += separatorWidth + 1
+		if showSecond {
+			WriteSeparator(screen, offset)
+			offset.x += separatorWidth + 1
 
-		WriteNumber(screen, offset, int(d.Seconds())%60/10%10)
-		offset.x += numberWidth + 1
+			WriteNumber(screen, offset, int(d.Seconds())%60/10%10)
+			offset.x += numberWidth + 1
 
-		WriteNumber(screen, offset, int(d.Seconds())%10)
-		offset.x += numberWidth + 1
+			WriteNumber(screen, offset, int(d.Seconds())%10)
+			offset.x += numberWidth + 1
+		}
 	} else {
-		width := len([]rune("00:00:00"))
+		width := len([]rune("00:00"))
+		if showSecond {
+			width = len([]rune("00:00:00"))
+		}
 		height := 1
 		offset := CalcCenterOffset(screen, width, height)
-		str := fmt.Sprintf("%02d:%02d:%02d", int(d.Hours()), int(d.Minutes())%60, int(d.Seconds())%60)
+		var str string
+		if showSecond {
+			str = fmt.Sprintf("%02d:%02d:%02d", int(d.Hours()), int(d.Minutes())%60, int(d.Seconds())%60)
+		} else {
+			str = fmt.Sprintf("%02d:%02d", int(d.Hours()), int(d.Minutes())%60)
+		}
 		WriteLine(screen, offset, str)
 	}
 }
 
-func TimerLoop(screen tcell.Screen, finishTime time.Time, quit <-chan struct{}) {
+func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	screen.Clear()
-	WriteTime(screen, finishTime.Sub(time.Now()))
+	WriteTime(screen, option.finishTime.Sub(time.Now()), option.showSecond)
 	screen.Show()
 
 	for {
@@ -95,12 +113,19 @@ func TimerLoop(screen tcell.Screen, finishTime time.Time, quit <-chan struct{}) 
 		case <-quit:
 			return
 		case t := <-ticker.C:
-			if t.After(finishTime) {
-				BlinkLoop(screen, quit)
-				return
+			if t.After(option.finishTime) {
+				ticker.Stop()
+				switch option.onEnd {
+				case EndImmediately:
+					return
+				case EndBlink:
+					BlinkLoop(screen, quit)
+					return
+				case EndFreeze:
+				}
 			}
 			screen.Clear()
-			WriteTime(screen, finishTime.Sub(t))
+			WriteTime(screen, option.finishTime.Sub(t), option.showSecond)
 			screen.Show()
 		}
 	}
@@ -135,14 +160,78 @@ func BlinkLoop(screen tcell.Screen, quit <-chan struct{}) {
 	}
 }
 
+type Option struct {
+	showSecond bool
+	onEnd      EndOption
+	finishTime time.Time
+}
+
+type EndOption int
+
+const (
+	EndImmediately EndOption = iota
+	EndBlink                 = iota
+	EndFreeze                = iota
+)
+
+func ParseOption() (Option, error) {
+	option := Option{}
+
+	flag.BoolVar(&option.showSecond, "s", false, "Show second")
+
+	var endBlink, endFreeze bool
+	flag.BoolVar(&endBlink, "b", false, "Blink on time elapsed")
+	flag.BoolVar(&endFreeze, "f", false, "Stop on time elapsed")
+
+	finishTimeString := flag.String("t", "", "Finish Time (06:30)")
+
+	flag.Parse()
+
+	if endBlink {
+		option.onEnd = EndBlink
+	}
+	if endFreeze {
+		option.onEnd = EndFreeze
+	}
+
+	if *finishTimeString != "" {
+		var h, m int
+		fmt.Sscanf(*finishTimeString, "%d:%d", &h, &m)
+		now := time.Now()
+		t := time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, time.Local)
+		if t.Before(time.Now()) {
+			t = t.Add(24 * time.Hour)
+		}
+		option.finishTime = t
+	}
+
+	if flag.NArg() == 1 {
+		d, err := time.ParseDuration(flag.Args()[0])
+		if err != nil {
+			return option, err
+		}
+		option.finishTime = time.Now().Add(d)
+	}
+
+	if option.finishTime.IsZero() {
+		return option, errors.New("time not specified")
+	}
+
+	return option, nil
+}
+
 func main() {
+	option, err := ParseOption()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
+	}
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return
 	}
 
-	finishTime := time.Now().Add(time.Duration(10 * time.Second))
 	quit := make(chan struct{})
 
 	screen.Init()
@@ -160,7 +249,7 @@ func main() {
 		}
 	}()
 
-	TimerLoop(screen, finishTime, quit)
+	TimerLoop(screen, option, quit)
 
 	screen.Fini()
 	os.Exit(0)
