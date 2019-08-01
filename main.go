@@ -100,6 +100,28 @@ func WriteTime(screen tcell.Screen, d time.Duration, showSecond bool) {
 	}
 }
 
+func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	start := time.Now()
+
+	screen.Clear()
+	WriteTime(screen, 0, option.showSecond)
+	screen.Show()
+
+	for {
+		select {
+		case <-quit:
+			return
+		case t := <-ticker.C:
+			screen.Clear()
+			WriteTime(screen, t.Sub(start), option.showSecond)
+			screen.Show()
+		}
+	}
+}
+
 func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -164,6 +186,7 @@ type Option struct {
 	showSecond bool
 	onEnd      EndOption
 	finishTime time.Time
+	countUp    bool
 }
 
 type EndOption int
@@ -178,6 +201,7 @@ func ParseOption() (Option, error) {
 	option := Option{}
 
 	flag.BoolVar(&option.showSecond, "s", false, "Show second")
+	flag.BoolVar(&option.countUp, "u", false, "Count up")
 
 	var endBlink, endFreeze bool
 	flag.BoolVar(&endBlink, "b", false, "Blink on time elapsed")
@@ -213,7 +237,7 @@ func ParseOption() (Option, error) {
 		option.finishTime = time.Now().Add(d)
 	}
 
-	if option.finishTime.IsZero() {
+	if option.finishTime.IsZero() && !option.countUp {
 		return option, errors.New("time not specified")
 	}
 
@@ -249,7 +273,11 @@ func main() {
 		}
 	}()
 
-	TimerLoop(screen, option, quit)
+	if option.countUp {
+		StopWatchLoop(screen, option, quit)
+	} else {
+		TimerLoop(screen, option, quit)
+	}
 
 	screen.Fini()
 	os.Exit(0)
