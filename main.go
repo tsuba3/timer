@@ -115,6 +115,17 @@ func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 		case <-quit:
 			return
 		case t := <-ticker.C:
+			if !option.finishTime.IsZero() && t.After(option.finishTime) {
+				ticker.Stop()
+				switch option.onEnd {
+				case EndImmediately:
+					return
+				case EndBlink:
+					BlinkLoop(screen, quit)
+					return
+				case EndFreeze:
+				}
+			}
 			screen.Clear()
 			WriteTime(screen, t.Sub(start), option.showSecond)
 			screen.Show()
