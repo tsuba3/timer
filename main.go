@@ -224,12 +224,12 @@ func main() {
 	option, err := ParseOption()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return
+		os.Exit(1)
 	}
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return
+		os.Exit(1)
 	}
 
 	quit := make(chan struct{})
