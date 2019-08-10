@@ -100,7 +100,7 @@ func WriteTime(screen tcell.Screen, option Option, d time.Duration) {
 	}
 }
 
-func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
+func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) int {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -113,16 +113,16 @@ func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 	for {
 		select {
 		case <-quit:
-			return
+			return 13
 		case t := <-ticker.C:
 			if !option.finishTime.IsZero() && t.After(option.finishTime) {
 				ticker.Stop()
 				switch option.onEnd {
 				case EndImmediately:
-					return
+					return 0
 				case EndBlink:
 					BlinkLoop(screen, option, quit)
-					return
+					return 0
 				case EndFreeze:
 				}
 			}
@@ -133,7 +133,7 @@ func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 	}
 }
 
-func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
+func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) int {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -144,16 +144,16 @@ func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 	for {
 		select {
 		case <-quit:
-			return
+			return 13
 		case t := <-ticker.C:
 			if t.After(option.finishTime) {
 				ticker.Stop()
 				switch option.onEnd {
 				case EndImmediately:
-					return
+					return 0
 				case EndBlink:
 					BlinkLoop(screen, option, quit)
-					return
+					return 0
 				case EndFreeze:
 				}
 			}
@@ -312,12 +312,13 @@ func main() {
 		}
 	}()
 
+	var code int
 	if option.countUp {
-		StopWatchLoop(screen, option, quit)
+		code = StopWatchLoop(screen, option, quit)
 	} else {
-		TimerLoop(screen, option, quit)
+		code = TimerLoop(screen, option, quit)
 	}
 
 	screen.Fini()
-	os.Exit(0)
+	os.Exit(code)
 }
