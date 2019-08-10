@@ -159,6 +159,11 @@ func ClockLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
 }
 
 func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) int {
+	screen.Clear()
+	WriteTime(screen, option, option.finishTime.Sub(time.Now()))
+	screen.Show()
+
+	time.Sleep(time.Duration(option.finishTime.Sub(time.Now()).Nanoseconds() % 1e9))
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
