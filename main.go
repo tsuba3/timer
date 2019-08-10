@@ -133,6 +133,31 @@ func StopWatchLoop(screen tcell.Screen, option Option, quit <-chan struct{}) int
 	}
 }
 
+func ShowNowTime(screen tcell.Screen, option Option) {
+	screen.Clear()
+	h, m, s := time.Now().Clock()
+	WriteTime(screen, option, time.Duration(60*(60*h+m)+s)*time.Second)
+	screen.Show()
+}
+
+func ClockLoop(screen tcell.Screen, option Option, quit <-chan struct{}) {
+	ShowNowTime(screen, option)
+	time.Sleep(time.Duration(1000000000 - time.Now().Nanosecond()))
+
+	ticker := time.NewTicker(time.Second)
+	ShowNowTime(screen, option)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-quit:
+			return
+		case <-ticker.C:
+			ShowNowTime(screen, option)
+		}
+	}
+}
+
 func TimerLoop(screen tcell.Screen, option Option, quit <-chan struct{}) int {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -272,10 +297,6 @@ func ParseOption() (Option, error) {
 		option.finishTime = time.Now().Add(d)
 	}
 
-	if option.finishTime.IsZero() && !option.countUp {
-		return option, errors.New("time not specified")
-	}
-
 	return option, nil
 }
 
@@ -312,9 +333,11 @@ func main() {
 		}
 	}()
 
-	var code int
+	var code int = 0
 	if option.countUp {
 		code = StopWatchLoop(screen, option, quit)
+	} else if option.finishTime.IsZero() {
+		ClockLoop(screen, option, quit)
 	} else {
 		code = TimerLoop(screen, option, quit)
 	}
