@@ -11,3 +11,9 @@ $ git config --local core.hooksPath .githooks
 ```bash
 $ go install github.com/tsuba3/timer@latest
 ```
+
+## Usage
+
+```bash
+$ timer --help
+```
